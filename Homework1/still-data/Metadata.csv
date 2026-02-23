@@ -1,0 +1,2 @@
+version,device name,recording epoch time,recording time,recording timezone,platform,appVersion,device id,sensors,sampleRateMs,standardisation,platform version
+3,LE2115,1771873899032,2026-02-23_19-11-39,America/New_York,android,1.53.0,1b906dc5-19eb-4eae-aece-45420c0db3b8,Accelerometer|Annotation|TotalAcceleration|AccelerometerUncalibrated,10||10|10,false,34
