@@ -1,0 +1,51 @@
+CS530 Homework 1
+
+In this homework you are tasked with collecting acceleration data from an IMU and then fitting that to a constrained route using a particle filter. Kalman filters are covered in section 14.4 of the text, and particle filtering is covered in section 14.5.3. There are also numerous references online if you need more details. Your particle filters will randomize both location and heading, and you will need to convert the relative motion of the IMU to the new heading of each particle (most easily accomplished by using a rotation matrix).
+
+IMUs are used extensively in robotic systems, both for data collection and for control. When the TrailNet drone flew in the direction indicated by its trail following DNN, it was a system using an IMU that estimated its progress and adjusted its control signals in response to that feedback. IMUs vary greatly in quality, from a few dollars to thousands of dollars. See digikey for an example list.
+
+Despite their ubiquity, IMU data is a poor substitute for real location information. The IMU accelerometer provides acceleration measurements, which must be double-integrated to create location estimates, and most accelerometers are extremely noisy. The gyroscopes drift over time, requiring online calibration. It is impossible to use an IMU without some type of filtering.
+
+Goals
+
+This homework is meant to illustrate a few things. First, the necessity of filtering data. Second, the difficulty of working with real world data. Below are filtered location estimated from IMU recordings after walking three identical paths. Notice that they are not consistent.
+
+Kalman filters require tuning, meaning that estimates of your measurement noise and system (or process) noise should be adjusted based upon reality. It turns out that this is nontrivial, and some recordings are simply “more noisy” than others, despite being made from the same hardware. Depending upon the quality of the IMU in your device, you may find it easier to simply make multiple recordings rather than finding a way to optimally tune your filter. The variance of your data is an okay place to begin for noise estimates.
+
+The particle filter will also require tuning. You will learn the struggle of working with real-world data, even if it should be simple, but these struggles can be overcome with properly tuned algorithms.
+
+Approach
+
+An example Kalman filter is provided, but you may also use an external library. A python program is preferable, but as long as your code runs on the CS department’s iLab machines any language is acceptable. You must write your own particle filtering code.
+
+For the particle filter, there will be a fair amount of parameter tuning:
+
+    How many particles should be spawned
+    How much variance should be used for the position and heading
+    How should the masked and unmasked areas be treated? As 0 probability of being outside of the mask, or as diminishing probability by distance from the mask?
+        Some of this depends upon how you decide to draw your mask, either exactly filling in any traversable areas or simply drawing a line through them.
+
+Recording Advice
+
+The recording should come from an outside area where you can access a satellite map, or from an inside area where you have a blueprint. You may measure an area and then draw up your own blueprint.
+
+Your recording doesn’t need to be long. The total distance travelled should be somewhere between 10 and 20 meters. Choose a region with some restrictions on your movement, such as planters blocking off movement through an open area, or the particle filtering won’t work.
+
+We aren’t using the gyroscope (unless you want to give yourself extra work) so be sure to keep the orientation of your recording device (probably a phone) constant. If you move extremely slowly, the signal of your acceleration will be lost in the noise. Try to move at a consistent pace to reduce the noise in the accelerometer.
+
+To make the recording easier to process, try to include a second or two of stillness at the beginning and end of the recording.
+
+Data Preprocessing
+
+Gravity will create a constant acceleration of 9.8m/s. Hold your device so that gravity is isolated on a single axis. It should be possible to estimate the orientation of your device by searching for a consistent gravity component over time, but you can also simply ignore it. If your device is not perfectly aligned, you can also attempt to subtract away the gravity component by getting the mean of the signal when you are not moving and subtracting it from your samples:
+
+Deliverables
+    An IMU recording, delivered as a csv with columns for time and acceleration along each axis
+    A image of a map, either a screenshot of a navigation map or a blueprint from a building
+    An image mask, indicating the traversable regions on the map
+        This should be one of the inputs to your program
+    A json file with the dimension of the map/mask, in pixels per meter
+        Use this as an input to your program
+    A program that produces image of the particles from the particle filter, including the first and final states, and at 1 second intervals
+        You may use external Kalman filtering code, but the particle filter must be your own
+        If your area is asymmetric you should not need to specify a starting location for the particle filter
