@@ -135,6 +135,9 @@ def main():
     average_dt_seconds = kalman_filter.get_average_dt_seconds(df_data["time"])
     system_noise = kalman_filter.get_approximate_system_noise(0.001, average_dt_seconds)    # 0.001 is tunable to improve performance of Kalman Filter
     measurement_noise = kalman_filter.get_approximate_measurement_noise()
+    position_noise = kalman_filter.get_approximate_position_noise()
+
+    return
     kfilter = kalman_filter.KalmanFilter(average_dt_seconds, system_noise, measurement_noise)
 
     prev_pos = numpy.array([0.0, 0.0, 0.0], dtype=float)
@@ -153,6 +156,8 @@ def main():
 
         positions[:, 0] += normalized_headings[heading_indices][:, 0] * change_x_2d
         positions[:, 1] += normalized_headings[heading_indices][:, 1] * change_y_2d
+
+        # Add the noise?
     
 if __name__ == "__main__":
     main()

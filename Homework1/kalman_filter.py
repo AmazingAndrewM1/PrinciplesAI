@@ -111,11 +111,11 @@ class KalmanFilter:
 
 def get_trimmed_data(path: pathlib.Path, trim_factor: float = 0.05):
     precomputed_file_name: str = "_".join(path.parts[-2:])
-    precomputed_file_name: str = precomputed_file_name[:precomputed_file_name.rindex(".")] + ".pkl"
+    precomputed_file_name: str = precomputed_file_name[:precomputed_file_name.rindex(".")] + ".parquet"
 
     precomputed_path = pathlib.Path() / "precomputed" / precomputed_file_name
-    if precomputed_path.exists():
-        return pd.read_pickle(precomputed_path)
+    if precomputed_path.is_file():
+        return pd.read_parquet(precomputed_path)
 
     data_df = pd.read_csv(path, header=0, converters={
         "time": str,    # Convert to string first otherwise Panda's default inferencing engine messes everything!
@@ -136,7 +136,7 @@ def get_trimmed_data(path: pathlib.Path, trim_factor: float = 0.05):
         "z": "x",
         "x": "z"
     }, inplace=True)
-    trimmed_df.to_pickle(precomputed_path)
+    trimmed_df.to_parquet(precomputed_path)
     return trimmed_df 
 
 def get_average_dt_seconds(timestamps: pd.Series):
@@ -168,29 +168,39 @@ def get_approximate_measurement_noise():
     df_still_data = get_trimmed_data(STILL_DATA_FILE_PATH)
     return df_still_data.loc[:, ["x", "y", "z"]].cov().to_numpy()
 
-def main():
-    DATA_FILE_PATH = pathlib.Path() / "data" / "Accelerometer.csv"
-    df_data = get_trimmed_data(DATA_FILE_PATH)
-
-    average_dt_seconds = get_average_dt_seconds(df_data["time"])
+def get_approximate_position_noise():
+    precomputed_path = pathlib.Path() / "precomputed" / "measurement-noise.npy"
+    if precomputed_path.is_file():
+        return numpy.load(precomputed_path)
+    
+    STILL_DATA_FILE_PATH = pathlib.Path() / "still-data" / "Accelerometer.csv"
+    df_still_data = get_trimmed_data(STILL_DATA_FILE_PATH)
+    average_dt_seconds = get_average_dt_seconds(df_still_data["time"])
     system_noise = get_approximate_system_noise(0.001, average_dt_seconds)
     measurement_noise = get_approximate_measurement_noise()
     kfilter = KalmanFilter(dt=average_dt_seconds, system_noise=system_noise, measurement_noise=measurement_noise)
-    filtered_data = []
-    # filtered_covariances = []
 
-    for row in df_data.loc[:, ["x", "y", "z"]].itertuples(index=False):
-        datum = numpy.array((row.x, row.y, row.z))
+    prev_pos = numpy.array([0.0, 0.0, 0.0], dtype=float)
+    displacement_data = []
+    for row in df_still_data.loc[:, ["x", "y", "z"]].itertuples(index=False):
+        datum = numpy.array((row.x, row.y, row.z), dtype=float)
         kfilter.predict()
         kfilter.update(datum)
 
-        filtered_data.append(kfilter.x.flatten())
-    df_filtered = pd.DataFrame(filtered_data, columns=
-        ["acc_x", "acc_y", "acc_z", "vel_x", "vel_y", "vel_z", "pos_x", "pos_y", "pos_z"]
-    )
+        curr_pos = kfilter.x.ravel()[6:9]
+        displacement_data.append(curr_pos - prev_pos)
+        prev_pos = curr_pos
 
-    plt.plot(df_filtered.loc[:, "pos_x"], df_filtered.loc[:, "pos_z"], marker=",", label="Estimated position")
-    plt.show()
+    result = numpy.vstack(displacement_data).std(axis=0, ddof=1)
+
+    # 3D Y --> 2D Y, 3D Z --> 2D X
+    result[0], result[2] = result[2], result[0]
+    numpy.save(precomputed_path, result)
+    return result
+
+def main():
+    pass
+
 
 if __name__ == "__main__":
     main()
