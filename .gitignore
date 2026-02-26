@@ -1,0 +1,4 @@
+*/__pycache__/*
+
+Homework1/precomputed/
+!Homework1/precomputed/*.txt

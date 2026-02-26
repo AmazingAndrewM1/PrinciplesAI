@@ -49,3 +49,8 @@ Deliverables
     A program that produces image of the particles from the particle filter, including the first and final states, and at 1 second intervals
         You may use external Kalman filtering code, but the particle filter must be your own
         If your area is asymmetric you should not need to specify a starting location for the particle filter
+
+According to the documentation for Android:
+    +Z faces forward from front of phone
+    +X faces orthogonally left from +Z
+    +Y faces upward

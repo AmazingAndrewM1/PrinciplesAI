@@ -1,6 +1,7 @@
 import numpy
 from matplotlib import pyplot as plt
 import pandas as pd
+import pathlib
 
 class KalmanFilter:
     def __init__(self, dt, system_noise, measurement_noise):
@@ -108,7 +109,11 @@ class KalmanFilter:
         y = y.reshape(-1, 1)
         self._internal_update(self.C, y, self.R) 
 
-def get_trimmed_data(path: str, trim_factor: float = 0.05):
+def get_trimmed_data(path: pathlib.Path, trim_factor: float = 0.05):
+    precomputed_path = pathlib.Path() / "precomputed" / "_".join(path.parts()[-2]) + ".pkl"
+    if precomputed_path.exists():
+        return pd.read_pickle(precomputed_path)
+
     data_df = pd.read_csv(path, header=0, converters={
         "time": str,    # Convert to string first otherwise Panda's default inferencing engine messes everything!
         "seconds_elapsed": float,
@@ -128,6 +133,7 @@ def get_trimmed_data(path: str, trim_factor: float = 0.05):
         "z": "x",
         "x": "z"
     }, inplace=True)
+    trimmed_df.to_pickle(precomputed_path)
     return trimmed_df 
 
 def get_average_dt_seconds(timestamps: pd.Series):
@@ -155,12 +161,12 @@ def get_approximate_system_noise(stddev: float, dt: float):
     return system_noise
 
 def get_approximate_measurement_noise():
-    STILL_DATA_FILE_PATH = "./still-data/Accelerometer.csv"
+    STILL_DATA_FILE_PATH = pathlib.Path() / "still-data" / "Accelerometer.csv"
     df_still_data = get_trimmed_data(STILL_DATA_FILE_PATH)
     return df_still_data.loc[:, ["x", "y", "z"]].cov().to_numpy()
 
 def main():
-    DATA_FILE_PATH = "./data/Accelerometer.csv"
+    DATA_FILE_PATH = pathlib.Path() / "data" / "Accelerometer.csv"
     df_data = get_trimmed_data(DATA_FILE_PATH)
 
     average_dt_seconds = get_average_dt_seconds(df_data["time"])
