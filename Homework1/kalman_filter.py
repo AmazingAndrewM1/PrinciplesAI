@@ -110,7 +110,10 @@ class KalmanFilter:
         self._internal_update(self.C, y, self.R) 
 
 def get_trimmed_data(path: pathlib.Path, trim_factor: float = 0.05):
-    precomputed_path = pathlib.Path() / "precomputed" / "_".join(path.parts()[-2]) + ".pkl"
+    precomputed_file_name: str = "_".join(path.parts[-2:])
+    precomputed_file_name: str = precomputed_file_name[:precomputed_file_name.rindex(".")] + ".pkl"
+
+    precomputed_path = pathlib.Path() / "precomputed" / precomputed_file_name
     if precomputed_path.exists():
         return pd.read_pickle(precomputed_path)
 

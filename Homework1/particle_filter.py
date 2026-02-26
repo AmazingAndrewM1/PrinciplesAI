@@ -114,7 +114,7 @@ def get_normalized_headings():
         [0.0, -1.0],
         [1.0, -1.0]
     ], dtype=float)
-    return headings / numpy.linalg.norm(headings, axis=1)
+    return headings / numpy.atleast_2d(numpy.linalg.norm(headings, axis=1)).T
 
 def main():
     parser = argparse.ArgumentParser(prog="Particle Filter")
