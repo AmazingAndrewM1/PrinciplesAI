@@ -47,7 +47,7 @@ def generate_probability_gradient(mask_image: Image):
         return numpy.load(precomputed_path)
     
     arr = numpy.asarray(mask_image)
-    probs = numpy.zeros(shape=(arr.shape[0], arr.shape[1]), dtype=float)
+    probs = numpy.zeros(shape=arr.shape[:-1], dtype=float)
     white_mask = numpy.all(arr == WHITE, axis=2)
     probs[white_mask] = 1.0 / numpy.count_nonzero(white_mask)
     numpy.save(precomputed_path, probs)
@@ -101,14 +101,14 @@ def generate_samples(probabilities: numpy.ndarray, headings: numpy.ndarray, num_
         True,
         probabilities.ravel()
     )
-    x, y = numpy.divmod(samples, probabilities.shape[0])
+    row, col = numpy.divmod(samples, probabilities.shape[1])
     
     heading_indices = rng.choice(
         headings.shape[0],
         num_samples,
         True
     )
-    return numpy.column_stack((x, y)).astype(float), heading_indices
+    return numpy.column_stack((col, row)).astype(float), heading_indices
 
 def get_normalized_headings():
     headings = numpy.array([
@@ -171,8 +171,8 @@ def main():
         change_2d = numpy.array([displacement_imu[2], -displacement_imu[1]])
         positions += normalized_headings[heading_indices] * numpy.atleast_2d(change_2d)
         
-        positions[:, 0] += rng.normal(0.0, position_noise[0], size=(positions.shape[0],))
-        positions[:, 1] += rng.normal(0.0, position_noise[1], size=(positions.shape[0],))
+        positions[:, 0] += rng.normal(0.0, position_noise[0], size=positions.shape[0])
+        positions[:, 1] += rng.normal(0.0, position_noise[1], size=positions.shape[0])
 
         if row.seconds_elapsed > next_second:
             fig = plt.figure(figsize=(5, 5))
@@ -180,23 +180,28 @@ def main():
             plt.ylim((mask_image.size[1], 0.0))
             plt.imshow(mask_image, cmap="gray")
             plt.scatter(positions[:, 0], positions[:, 1], marker="+")
-            fig.canvas.draw()
 
             # Thanks to https://gist.github.com/samuelsmal/432db47096cbf5e141bff37d2f367ab1 to
             # show how to make a matplotlib plot and save it in memory
 
+            fig.canvas.draw()
             frame = numpy.array(fig.canvas.renderer._renderer)
             frames.append(frame)
-
             plt.close()
+
             next_second += 1
 
-        # Resampling time
-        # 1) Find probabilities of points
+        # # Resampling time
+        # # 1) Find probabilities of points
 
         point_probabilities: numpy.ndarray = gradient_probabilities[positions[:, 0].astype(int), positions[:, 1].astype(int)]
         point_probabilities *= 1.0 / point_probabilities.sum()
-        selected_indices = rng.choice(positions.shape[0], size=positions.shape[0], replace=True, p=point_probabilities)
+        selected_indices = rng.choice(
+            positions.shape[0], 
+            size=positions.shape[0], 
+            replace=True, 
+            p=point_probabilities
+        )
 
         positions = positions[selected_indices]
         heading_indices = heading_indices[selected_indices]
