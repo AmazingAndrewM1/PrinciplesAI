@@ -175,7 +175,7 @@ def main():
         positions[:, 0] += rng.normal(0.0, position_noise[0], size=positions.shape[0])
         positions[:, 1] += rng.normal(0.0, position_noise[1], size=positions.shape[0])
 
-        numpy.clip(positions)
+        numpy.clip(positions, 0.0, 499.0, out=positions)
 
         if row.seconds_elapsed > next_second:
             fig = plt.figure(figsize=(5, 5))
