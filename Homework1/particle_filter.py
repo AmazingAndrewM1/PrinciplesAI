@@ -10,7 +10,7 @@ import imageio.v2 as iv2
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-DATA_FILE_PATH = pathlib.Path() / "data" / "Accelerometer.csv"
+DATA_FILE_PATH = pathlib.Path() / "data" / "walking-rutgers-path" / "Accelerometer.csv"
 
 def get_masked_image(path: pathlib.Path):
     with Image.open(path) as image:
@@ -20,11 +20,14 @@ def get_masked_image(path: pathlib.Path):
             raise ValueError("Image contains non-white or non-black pixels")
     return rgb_image
 
-def get_pixels_per_meter(path: str):
-    with open(path, "r") as json_file:
+def get_json_data(path: pathlib.Path) -> tuple[float, numpy.ndarray]:
+    with path.open("r") as json_file:
         data = json.load(json_file)
 
     pixels_per_meter = float(data["pixels_per_meter"])
+    # heading_angle = numpy.deg2rad(float(data["heading_angle_degrees"]))
+
+    # heading = numpy.array([numpy.cos(heading_angle), -numpy.sin(heading_angle)])    # Rembember y increases downward in image coordinates
     return pixels_per_meter
 
 def get_neighbors(coordinate: tuple[int, int], max_size: int):
@@ -89,7 +92,7 @@ def generate_probability_gradient(mask_image: Image):
 
     # result = 1.0 / numpy.sum(distance_gradient) * distance_gradient
     # numpy.save(precomputed_path, result)
-    return result
+    # return result
 
 def generate_samples(probabilities: numpy.ndarray, headings: numpy.ndarray, num_samples: int):
     # Select samples based on the probabilities from with rng.choice()
@@ -133,8 +136,8 @@ def main():
     mask_image = get_masked_image(mask_path)
     gradient_probabilities = generate_probability_gradient(mask_image)
 
-    json_path = args.json
-    pixels_per_meter: float = get_pixels_per_meter(json_path)
+    json_path = pathlib.Path(args.json)
+    pixels_per_meter = get_json_data(json_path)
 
     normalized_headings = get_normalized_headings()
     positions, heading_indices = generate_samples(gradient_probabilities, normalized_headings, 512)
@@ -159,16 +162,14 @@ def main():
         displacement_imu = pixels_per_meter * (curr_pos - prev_pos)
         prev_pos = curr_pos
 
-        # 10% of particles change to adjacent heading
-        # The assumption is that a human normally walks in the same direction and turns less often
         turning_mask = rng.random(size=heading_indices.shape[0]) < 0.1
         counterclockwise_mask = rng.choice([True, False], size=heading_indices.shape[0], replace=True, shuffle=False)
         heading_indices[turning_mask & counterclockwise_mask] += 1
         heading_indices[turning_mask & ~counterclockwise_mask] -= 1
         heading_indices %= normalized_headings.shape[0]
 
-        # Note: Movement in the +Z 3D = +X 2D, +Y 3D = -Y 2D
-        change_2d = numpy.array([displacement_imu[2], -displacement_imu[1]])
+        # Note: Movement in the +Z 3D = +X 2D, +X 3D = -Y 2D
+        change_2d = numpy.array((displacement_imu[2], -displacement_imu[0]), dtype=float)
         positions += normalized_headings[heading_indices] * numpy.atleast_2d(change_2d)
         
         positions[:, 0] += rng.normal(0.0, position_noise[0], size=positions.shape[0])
@@ -206,7 +207,7 @@ def main():
         positions = positions[selected_indices]
         heading_indices = heading_indices[selected_indices]
     
-    iv2.mimsave("./animation/animation.gif", frames, duration=1.0, loop=0)
+    iv2.mimsave("./animation/animation.gif", frames, duration=5.0, loop=0)
     
 if __name__ == "__main__":
     main()

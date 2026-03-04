@@ -28,10 +28,9 @@ class KalmanFilter:
             [0, 0, 1, 0, 0, 0, 0, 0, 0]
         ])
         # Make an observation matrix that contains the velocity for 0 velocity updates.
+        
+        # This zeroC is wrong because it affects acceleration when it should not.
         self.zeroC = numpy.array([
-            [1, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 1, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 1, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 1, 0, 0, 0]
@@ -91,7 +90,7 @@ class KalmanFilter:
         # As an alternative to the control input, we can also expand the
         # observation to include velocity, and indicate that it is 0.
         # This doesn't interrupt the statistics of the system, so it could be preferable.
-        y = numpy.zeros((6, 1))
+        y = numpy.zeros((3, 1))
         self._internal_update(self.zeroC, y, self.jitter)
 
     def fused_location_update(self, y_accel, y_location):
@@ -164,7 +163,7 @@ def get_approximate_system_noise(stddev: float, dt: float):
     return system_noise
 
 def get_approximate_measurement_noise():
-    STILL_DATA_FILE_PATH = pathlib.Path() / "still-data" / "Accelerometer.csv"
+    STILL_DATA_FILE_PATH = pathlib.Path() / "data" / "still" / "Accelerometer.csv"
     df_still_data = get_trimmed_data(STILL_DATA_FILE_PATH)
     return df_still_data.loc[:, ["x", "y", "z"]].cov().to_numpy()
 
@@ -173,7 +172,7 @@ def get_approximate_position_noise():
     if precomputed_path.is_file():
         return numpy.load(precomputed_path)
     
-    STILL_DATA_FILE_PATH = pathlib.Path() / "still-data" / "Accelerometer.csv"
+    STILL_DATA_FILE_PATH = pathlib.Path() / "data" / "still" / "Accelerometer.csv"
     df_still_data = get_trimmed_data(STILL_DATA_FILE_PATH)
     average_dt_seconds = get_average_dt_seconds(df_still_data["time"])
     system_noise = get_approximate_system_noise(0.001, average_dt_seconds)
@@ -192,15 +191,50 @@ def get_approximate_position_noise():
         prev_pos = curr_pos
 
     result = numpy.vstack(displacement_data).std(axis=0, ddof=1)
-
-    # 3D Y --> 2D Y, 3D Z --> 2D X
-    result[0], result[2] = result[2], result[0]
     numpy.save(precomputed_path, result)
     return result
 
 def main():
-    pass
+    DATA_FILE_PATH = pathlib.Path() / "data" / "walking-straight1" / "Accelerometer.csv"
+    df_data = get_trimmed_data(DATA_FILE_PATH)
+    average_dt_seconds = get_average_dt_seconds(df_data["time"])
+    system_noise = get_approximate_system_noise(0.001, average_dt_seconds)
+    measurement_noise = get_approximate_measurement_noise()
+    kfilter = KalmanFilter(dt=average_dt_seconds, system_noise=system_noise, measurement_noise=measurement_noise)
 
+    data = []
+    is_stationary = False
+    start_of_stop = 0.0
+    next_second = 0
+    for row in df_data.itertuples(index=False):
+        datum = numpy.array((row.x, row.y, row.z), dtype=float)
+        kfilter.predict()
+        data.append(kfilter.x.ravel()[6:9])
+
+        was_stationary = is_stationary
+        is_stationary = numpy.linalg.vector_norm(datum) < 0.25
+
+        if not was_stationary and is_stationary:
+            start_of_stop = row.seconds_elapsed
+
+        if is_stationary and row.seconds_elapsed - start_of_stop > 0.5:
+            kfilter.zero_velocity_update()
+            print(f"Zero Velocity Update at t={row.seconds_elapsed}s")
+        else:
+            kfilter.update(datum)
+    result = numpy.vstack(data, dtype=float)
+
+    fig, axes = plt.subplots(3)
+    fig.suptitle("3D Movement Each Axis")
+
+    axes[0].set_title("x vs y")
+    axes[0].scatter(result[:, 0], result[:, 1], marker="+")
+    axes[1].set_title("x vs z")
+    axes[1].scatter(result[:, 0], result[:, 2], marker="+")
+    axes[2].set_title("y vs z")
+    axes[2].scatter(result[:, 1], result[:, 2], marker="+")
+    fig.tight_layout(pad=1.0)
+    plt.show()
 
 if __name__ == "__main__":
     main()
