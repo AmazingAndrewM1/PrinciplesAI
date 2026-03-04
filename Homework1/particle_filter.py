@@ -175,6 +175,8 @@ def main():
         positions[:, 0] += rng.normal(0.0, position_noise[0], size=positions.shape[0])
         positions[:, 1] += rng.normal(0.0, position_noise[1], size=positions.shape[0])
 
+        numpy.clip(positions)
+
         if row.seconds_elapsed > next_second:
             fig = plt.figure(figsize=(5, 5))
             plt.xlim((0.0, mask_image.size[0]))
