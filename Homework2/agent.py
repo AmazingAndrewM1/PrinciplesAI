@@ -124,7 +124,7 @@ class Agent:
         self.optimizer.zero_grad()
         loss.backward()
 
-        torch.nn.utils.clip_grad_norm_(self.main_network.parameters(), self.clip_grad_val)  # No exploding gradients please!
+        torch.nn.utils.clip_grad_norm_(self.main_network.parameters(), self.clip_grad_val)  # No exploding gradients!
         self.optimizer.step()
 
         self.train_count += 1

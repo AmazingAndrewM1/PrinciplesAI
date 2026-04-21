@@ -1,17 +1,28 @@
 import argparse
 import gymnasium as gym
+from gymnasium.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv
 import pickle
 import random
 from agent import Agent
 from matplotlib import pyplot as plt
+import tqdm
 
-def modifyReward(state, next_state, action, reward):
+has_printed = False
+
+def modifyReward(state, next_state, action, reward, env: Continuous_MountainCarEnv):
     """
     Modify the reward so that your DQN policy search succeeds.
     """
     # This is part of your homework.
     # You'll probably want to reward the model for getting closer to the goal, somehow.
-    return reward
+
+    # I thought about mechanical energy = kinetic energy + potential energy from physics to create this reward function
+    curr_position, curr_velocity = state
+    mechanical_energy_current = 0.5 * curr_velocity * curr_velocity + env._height(curr_position)
+
+    next_position, next_velocity = next_state
+    mechanical_energy_next = 0.5 * next_velocity * next_velocity + env._height(next_position)
+    return mechanical_energy_next - mechanical_energy_current
 
 
 def discretizeState(state):
@@ -46,18 +57,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     max_steps = 1000
-    env: gym.Env = gym.make('MountainCarContinuous-v0', max_episode_steps=max_steps)
+    env: gym.wrappers = gym.make('MountainCarContinuous-v0', max_episode_steps=max_steps)
 
     # We can go up, down, left, or right
     print(f"Action space: {env.action_space}")
     # We know the vehicle position and speed
     print(f"Observation space: {env.observation_space}")
 
+    # Environment information
+
     agent = Agent(env)
 
     # The discretized, value-iteration solution does not need training.
     if args.algorithm != 'discretized':
-        for episode in range(args.episodes):
+        for episode in tqdm.trange(args.episodes):
             # Reset the environment to put the agent into an initial state
             state, info = env.reset()
 
@@ -72,7 +85,7 @@ if __name__ == "__main__":
                 next_state, reward, terminated, truncated, info = env.step(action)
 
                 if args.algorithm == 'dqn':
-                    reward = modifyReward(state, next_state, action, reward)
+                    reward = modifyReward(state, next_state, action, reward, env.unwrapped)
 
                 # Perform an update step for your deep Q network.
                 # TODO
@@ -90,7 +103,7 @@ if __name__ == "__main__":
     env.close()
 
     plt.plot(agent.loss_history)
-    plt.show()
+    plt.savefig("./plots/loss_history.png", format="png", bbox_inches="tight")
 
     # Play with policy
     if args.record:
