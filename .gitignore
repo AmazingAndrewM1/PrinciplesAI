@@ -7,3 +7,8 @@ Homework1/frames/*
 
 # Ignore environments
 venv/
+
+Homework2/videos/
+Homework2/*.txt
+
+.vscode/

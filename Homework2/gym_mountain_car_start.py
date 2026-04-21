@@ -2,7 +2,8 @@ import argparse
 import gymnasium as gym
 import pickle
 import random
-
+from agent import Agent
+from matplotlib import pyplot as plt
 
 def modifyReward(state, next_state, action, reward):
     """
@@ -10,7 +11,7 @@ def modifyReward(state, next_state, action, reward):
     """
     # This is part of your homework.
     # You'll probably want to reward the model for getting closer to the goal, somehow.
-    pass
+    return reward
 
 
 def discretizeState(state):
@@ -21,6 +22,7 @@ def discretizeState(state):
     pass
 
 if __name__ == "__main__":
+    # Start simulation!
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--algorithm",
@@ -41,38 +43,42 @@ if __name__ == "__main__":
         type=int,
         default=100,
         help="The number of episodes to run")
-
     args = parser.parse_args()
 
-    max_steps = 4000
-    env = gym.make('MountainCarContinuous-v0', max_episode_steps=max_steps)
+    max_steps = 1000
+    env: gym.Env = gym.make('MountainCarContinuous-v0', max_episode_steps=max_steps)
 
     # We can go up, down, left, or right
     print(f"Action space: {env.action_space}")
     # We know the vehicle position and speed
     print(f"Observation space: {env.observation_space}")
 
+    agent = Agent(env)
+
     # The discretized, value-iteration solution does not need training.
-    if args.dnn != 'discretized':
+    if args.algorithm != 'discretized':
         for episode in range(args.episodes):
             # Reset the environment to put the agent into an initial state
             state, info = env.reset()
 
             # Run the simulation
             finished = False
-
             sim_steps = 0
             while not(finished):
                 # TODO Get an action from your model
-                action = [0]
+                action_index = agent.choose_action_index(state)
+                action = agent.choose_action_from_index(action_index)
 
                 next_state, reward, terminated, truncated, info = env.step(action)
 
-                if args.dnn == 'dqn':
+                if args.algorithm == 'dqn':
                     reward = modifyReward(state, next_state, action, reward)
 
                 # Perform an update step for your deep Q network.
                 # TODO
+                agent.decay_epsilon()
+                agent.replay_buffer.add(state, action_index, reward, next_state, terminated or truncated)
+                agent.train()
 
                 if terminated:
                     next_state = None
@@ -83,13 +89,16 @@ if __name__ == "__main__":
                 finished = terminated or truncated
     env.close()
 
+    plt.plot(agent.loss_history)
+    plt.show()
+
     # Play with policy
     if args.record:
         env = gym.make('MountainCarContinuous-v0', max_episode_steps=4000, render_mode="rgb_array")
         env = gym.wrappers.RecordVideo(
             env,
             #episode_trigger=lambda num: num % 2 == 0,
-            video_folder="./",
+            video_folder="./videos/",
             name_prefix="mountain-car",
         )
     else:
@@ -99,7 +108,7 @@ if __name__ == "__main__":
     finished = False
 
     while not(finished):
-        if args.dnn == 'discretized':
+        if args.algorithm == 'discretized':
             # The discretized model should not require learning, converging instead through value iteration.
             state = discretizeState(state)
             next_state = discretizeState(next_state)
@@ -118,4 +127,3 @@ if __name__ == "__main__":
 
         finished = terminated or truncated
     env.close()
-
