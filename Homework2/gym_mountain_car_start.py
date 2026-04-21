@@ -4,6 +4,7 @@ from gymnasium.envs.classic_control.continuous_mountain_car import Continuous_Mo
 import pickle
 import random
 from agent import Agent
+from discretized_model import DiscretizedModel
 from matplotlib import pyplot as plt
 import tqdm
 
@@ -23,7 +24,6 @@ def modifyReward(state, next_state, action, reward, env: Continuous_MountainCarE
     next_position, next_velocity = next_state
     mechanical_energy_next = 0.5 * next_velocity * next_velocity + env._height(next_position)
     return mechanical_energy_next - mechanical_energy_current
-
 
 def discretizeState(state):
     """
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         help="The number of episodes to run")
     args = parser.parse_args()
 
-    max_steps = 1000
+    max_steps = 1_000
     env: gym.wrappers = gym.make('MountainCarContinuous-v0', max_episode_steps=max_steps)
 
     # We can go up, down, left, or right
@@ -100,10 +100,10 @@ if __name__ == "__main__":
                 state = next_state
 
                 finished = terminated or truncated
-    env.close()
 
-    plt.plot(agent.loss_history)
-    plt.savefig("./plots/loss_history.png", format="png", bbox_inches="tight")
+        plt.plot(agent.loss_history)
+        plt.savefig("./plots/loss_history.png", format="png", bbox_inches="tight")
+    env.close()
 
     # Play with policy
     if args.record:
@@ -120,6 +120,11 @@ if __name__ == "__main__":
     # Run the simulation
     finished = False
 
+    num_steps = 0
+
+    if args.algorithm == "discretized":
+        discretized_model = DiscretizedModel(env.unwrapped)
+
     while not(finished):
         if args.algorithm == 'discretized':
             # The discretized model should not require learning, converging instead through value iteration.
@@ -129,14 +134,17 @@ if __name__ == "__main__":
             action = [0]
         else:
             # TODO Get the next action from your DQN
-            action = [0]
+            action_index = agent.choose_action_index(state)
+            action = agent.choose_action_from_index(action_index)
 
         # Take the action
         #print(f"Taking action {action} from state {state}")
         next_state, reward, terminated, truncated, info = env.step(action)
+        num_steps += 1
 
         # Update the state
         state = next_state
 
         finished = terminated or truncated
     env.close()
+    print(f"Num Steps to Solution: {num_steps}")
