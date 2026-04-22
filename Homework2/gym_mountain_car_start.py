@@ -25,11 +25,13 @@ def modifyReward(state, next_state, action, reward, env: Continuous_MountainCarE
     mechanical_energy_next = 0.5 * next_velocity * next_velocity + env._height(next_position)
     return mechanical_energy_next - mechanical_energy_current
 
-def discretizeState(state):
+def discretizeState(state, discretized_model: DiscretizedModel):
     """
     Discretize the state. Used with value iteration.
     """
     # This is part of your homework
+    # I am not sure if this was supposed to be hard or not, but np.digitize() solves this in essentially one line.
+    discretized_model.discretize(state)
     pass
 
 if __name__ == "__main__":
@@ -128,8 +130,8 @@ if __name__ == "__main__":
     while not(finished):
         if args.algorithm == 'discretized':
             # The discretized model should not require learning, converging instead through value iteration.
-            state = discretizeState(state)
-            next_state = discretizeState(next_state)
+            state = discretized_model.discretize(state)
+            next_state = discretized_model.discretize(next_state)
             # TODO Get the next action from the discretized model
             action = [0]
         else:
